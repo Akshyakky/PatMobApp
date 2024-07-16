@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, TextInput, Button, Text, ScrollView, Alert, Platform } from 'react-native';
-import { openDatabase, createTable, insertPatient } from './src/db';  // Ensure the path is correct
+import { View, TextInput, Button, Text, ScrollView, Alert, Platform, StyleSheet } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 const App = () => {
-    const [db, setDb] = useState(null);
+    const [patients, setPatients] = useState([]);
     const [mobileNumber, setMobileNumber] = useState('');
     const [name, setName] = useState('');
     const [gender, setGender] = useState('');
@@ -17,19 +17,45 @@ const App = () => {
     const [useDOB, setUseDOB] = useState(true);
 
     useEffect(() => {
-        async function initializeDb() {
-            const dbInstance = await openDatabase();
-            await createTable(dbInstance);
-            setDb(dbInstance);
-        }
-        initializeDb();
+        const fetchPatients = async () => {
+            const storedPatients = await AsyncStorage.getItem('patients');
+            if (storedPatients) {
+                setPatients(JSON.parse(storedPatients));
+            }
+        };
+        fetchPatients();
     }, []);
 
     const handleRegister = async () => {
         const chartCode = generateChartCode();
-        const formattedDob = dob.toISOString().split('T')[0]; // Format DOB to YYYY-MM-DD
-        await insertPatient(db, chartCode, name, mobileNumber, gender, formattedDob, age, relationship, notes);
+        const formattedDob = dob.toISOString().split('T')[0];
+        const newPatient = {
+            chartCode,
+            name,
+            mobileNumber,
+            gender,
+            dob: formattedDob,
+            age,
+            relationship,
+            notes,
+        };
+
+        const updatedPatients = [...patients, newPatient];
+        setPatients(updatedPatients);
+        await AsyncStorage.setItem('patients', JSON.stringify(updatedPatients));
+
         Alert.alert('Patient registered successfully!');
+        resetForm();
+    };
+
+    const resetForm = () => {
+        setMobileNumber('');
+        setName('');
+        setGender('');
+        setDob(new Date());
+        setAge('');
+        setRelationship('');
+        setNotes('');
     };
 
     const generateChartCode = () => {
@@ -42,33 +68,41 @@ const App = () => {
         setDob(currentDate);
     };
 
+    const RadioButton = ({ selected, onPress }) => (
+        <Text style={{ marginLeft: 10, marginRight: 10 }} onPress={onPress}>
+            {selected ? '◉' : '◯'}
+        </Text>
+    );
+
     return (
-        <ScrollView style={{ padding: 20 }}>
-            <Text>Patient Mobile Number</Text>
+        <ScrollView style={styles.container}>
+            <Text style={styles.header}>Patient Registration</Text>
+
+            <Text style={styles.label}>Patient Mobile Number</Text>
             <TextInput
-                style={{ borderBottomWidth: 1, marginBottom: 15 }}
+                style={styles.input}
                 keyboardType="numeric"
                 maxLength={10}
                 value={mobileNumber}
                 onChangeText={setMobileNumber}
             />
 
-            <Text>Patient Name</Text>
+            <Text style={styles.label}>Patient Name</Text>
             <TextInput
-                style={{ borderBottomWidth: 1, marginBottom: 15 }}
+                style={styles.input}
                 value={name}
                 onChangeText={setName}
             />
 
-            <Text>Patient Gender</Text>
-            <Picker selectedValue={gender} onValueChange={setGender} style={{ marginBottom: 15 }}>
+            <Text style={styles.label}>Patient Gender</Text>
+            <Picker selectedValue={gender} onValueChange={setGender} style={styles.picker}>
                 <Picker.Item label="Male" value="male" />
                 <Picker.Item label="Female" value="female" />
-                <Picker.Item label="Either" value="either" />
+                <Picker.Item label="Other" value="other" />
             </Picker>
 
-            <Text>Date of Birth or Age</Text>
-            <View style={{ flexDirection: 'row', marginBottom: 15, alignItems: 'center' }}>
+            <Text style={styles.label}>Date of Birth or Age</Text>
+            <View style={styles.radioContainer}>
                 <Text onPress={() => setUseDOB(true)}>DOB</Text>
                 <RadioButton selected={useDOB} onPress={() => setUseDOB(true)} />
                 <Text onPress={() => setUseDOB(false)}>Age</Text>
@@ -77,7 +111,7 @@ const App = () => {
 
             {useDOB ? (
                 <View>
-                    <Text>Patient DOB</Text>
+                    <Text style={styles.label}>Patient DOB</Text>
                     <Button onPress={() => setShowDobPicker(true)} title="Select Date" />
                     {showDobPicker && (
                         <DateTimePicker
@@ -87,13 +121,13 @@ const App = () => {
                             onChange={onDobChange}
                         />
                     )}
-                    <Text style={{ marginTop: 15 }}>{dob.toDateString()}</Text>
+                    <Text style={styles.dateText}>{dob.toDateString()}</Text>
                 </View>
             ) : (
                 <View>
-                    <Text>Patient Age</Text>
+                    <Text style={styles.label}>Patient Age</Text>
                     <TextInput
-                        style={{ borderBottomWidth: 1, marginBottom: 15 }}
+                        style={styles.input}
                         keyboardType="numeric"
                         maxLength={3}
                         value={age}
@@ -102,8 +136,8 @@ const App = () => {
                 </View>
             )}
 
-            <Text>Patient Relationship</Text>
-            <Picker selectedValue={relationship} onValueChange={setRelationship} style={{ marginBottom: 15 }}>
+            <Text style={styles.label}>Patient Relationship</Text>
+            <Picker selectedValue={relationship} onValueChange={setRelationship} style={styles.picker}>
                 <Picker.Item label="Father" value="father" />
                 <Picker.Item label="Mother" value="mother" />
                 <Picker.Item label="Brother" value="brother" />
@@ -111,25 +145,110 @@ const App = () => {
                 <Picker.Item label="Son" value="son" />
                 <Picker.Item label="Daughter" value="daughter" />
                 <Picker.Item label="Friend" value="friend" />
-            </Picker>   
+            </Picker>
 
-            <Text>Notes</Text>
+            <Text style={styles.label}>Notes</Text>
             <TextInput
-                style={{ borderBottomWidth: 1, marginBottom: 15 }}
+                style={styles.input}
                 multiline
                 value={notes}
                 onChangeText={setNotes}
             />
 
-            <Button title="Register" onPress={handleRegister} />
+            <View style={styles.buttonContainer}>
+                <Button title="Register" onPress={handleRegister} color="#FF6F30" />
+            </View>
+
+            <View>
+                {patients.map((patient, index) => (
+                    <View key={index} style={styles.patientCard}>
+                        <Text style={styles.patientText}>Chart Code: {patient.chartCode}</Text>
+                        <Text style={styles.patientText}>Name: {patient.name}</Text>
+                        <Text style={styles.patientText}>Mobile: {patient.mobileNumber}</Text>
+                        <Text style={styles.patientText}>Gender: {patient.gender}</Text>
+                        <Text style={styles.patientText}>DOB: {patient.dob}</Text>
+                        <Text style={styles.patientText}>Age: {patient.age}</Text>
+                        <Text style={styles.patientText}>Relationship: {patient.relationship}</Text>
+                        <Text style={styles.patientText}>Notes: {patient.notes}</Text>
+                    </View>
+                ))}
+            </View>
         </ScrollView>
     );
 };
 
-const RadioButton = ({ selected, onPress }) => (
-    <Text style={{ marginLeft: 10, marginRight: 10 }} onPress={onPress}>
-        {selected ? '◉' : '◯'}
-    </Text>
-);
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        paddingTop: 50,
+        paddingBottom: 50,
+        paddingLeft: 20,
+        paddingRight: 20,
+        backgroundColor: '#FAF3E0',
+    },
+    header: {
+        fontSize: 28,
+        fontWeight: 'bold',
+        marginBottom: 20,
+        textAlign: 'center',
+        color: '#FF6F30',
+    },
+    label: {
+        fontSize: 15,
+        marginBottom: 5,
+        color: '#333',
+        fontWeight: '600',
+    },
+    input: {
+        borderBottomWidth: 1,
+        borderBottomColor: '#FF6F30',
+        marginBottom: 20,
+        padding: 12,
+        borderRadius: 8,
+        backgroundColor: '#FFFFFF',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 3,
+    },
+    picker: {
+        marginBottom: 15,
+        borderColor: '#FF6F30',
+        borderWidth: 1,
+        borderRadius: 8,
+        backgroundColor: '#FFFFFF',
+    },
+    radioContainer: {
+        flexDirection: 'row',
+        marginBottom: 25,
+        alignItems: 'center',
+    },
+    dateText: {
+        marginTop: 15,
+        fontWeight: 'bold',
+        color: '#333',
+    },
+    buttonContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 20,
+    },
+    patientCard: {
+        marginTop: 10,
+        padding: 15,
+        borderRadius: 8,
+        backgroundColor: '#FFE4B5',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.2,
+        shadowRadius: 1,
+        elevation: 3,
+    },
+    patientText: {
+        fontSize: 16,
+        color: '#333',
+    },
+});
 
 export default App;

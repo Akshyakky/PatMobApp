@@ -9,16 +9,21 @@
     "web": "expo start --web"
   },
   "dependencies": {
-    "expo": "~51.0.18",
+    "@expo/dev-tools": "^0.13.187",
+    "@expo/metro-config": "0.18.1",
+    "@expo/metro-runtime": "~3.2.1",
+    "@react-native-async-storage/async-storage": "1.23.1",
+    "@react-native-community/datetimepicker": "8.0.1",
+    "@react-native-picker/picker": "2.7.5",
+    "expo": "^51.0.20",
+    "expo-sqlite": "~14.0.4",
     "expo-status-bar": "~1.12.1",
     "react": "18.2.0",
-    "react-native": "0.74.3",
     "react-dom": "18.2.0",
+    "react-native": "0.74.3",
     "react-native-web": "~0.19.10",
-    "@expo/metro-runtime": "~3.2.1",
-    "expo-sqlite": "~14.0.4",
-    "@react-native-picker/picker": "^2.4.0",
-    "@react-native-community/datetimepicker": "8.0.1"
+    "@expo/config-plugins": "8.0.0",
+    "@expo/prebuild-config": "7.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"
