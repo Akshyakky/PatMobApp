@@ -3,10 +3,14 @@ import { View, TextInput, Button, Text, ScrollView, Alert, Platform, StyleSheet 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import axios from 'axios'; // Import axios for API calls
 
 const App = () => {
     const [patients, setPatients] = useState([]);
     const [mobileNumber, setMobileNumber] = useState('');
+    const [email, setEmail] = useState(''); // Email state
+    const [otp, setOtp] = useState(''); // OTP state
+    const [otpSent, setOtpSent] = useState(false); // OTP sent status
     const [name, setName] = useState('');
     const [gender, setGender] = useState('');
     const [dob, setDob] = useState(new Date());
@@ -33,6 +37,7 @@ const App = () => {
             chartCode,
             name,
             mobileNumber,
+            email, // Include email in patient data
             gender,
             dob: formattedDob,
             age,
@@ -50,12 +55,15 @@ const App = () => {
 
     const resetForm = () => {
         setMobileNumber('');
+        setEmail(''); // Reset email
+        setOtp(''); // Reset OTP
         setName('');
         setGender('');
         setDob(new Date());
         setAge('');
         setRelationship('');
         setNotes('');
+        setOtpSent(false); // Reset OTP sent status
     };
 
     const generateChartCode = () => {
@@ -68,6 +76,43 @@ const App = () => {
         setDob(currentDate);
     };
 
+    const handleRequestOtp = async () => {
+        if (!email) {
+            Alert.alert('Please enter a valid email address.');
+            return;
+        }
+        try {
+            console.log('Sending OTP to:', email);
+            const response = await axios.post('http://192.168.29.32:3000/send-otp', { email });
+            console.log('Response:', response.data);
+            if (response.data.success) {
+                setOtpSent(true);
+                Alert.alert('OTP sent to your email.');
+            } else {
+                Alert.alert('Failed to send OTP. Please try again.');
+            }
+        } catch (error) {
+            console.error('Error sending OTP:', error);
+            Alert.alert('An error occurred. Please try again.');
+        }
+    };
+    
+    const handleVerifyOtp = async () => {
+        try {
+            console.log('Verifying OTP for:', email);
+            const response = await axios.post('http://192.168.29.32:3000/verify-otp', { email, otp });
+            console.log('Response:', response.data);
+            if (response.data.success) {
+                Alert.alert('OTP verified successfully.');
+            } else {
+                Alert.alert('Invalid OTP. Please try again.');
+            }
+        } catch (error) {
+            console.error('Error verifying OTP:', error);
+            Alert.alert('An error occurred. Please try again.');
+        }
+    };
+    
     const RadioButton = ({ selected, onPress }) => (
         <Text style={{ marginLeft: 10, marginRight: 10 }} onPress={onPress}>
             {selected ? '◉' : '◯'}
@@ -86,6 +131,35 @@ const App = () => {
                 value={mobileNumber}
                 onChangeText={setMobileNumber}
             />
+
+            <Text style={styles.label}>Patient Email</Text>
+            <TextInput
+                style={styles.input}
+                keyboardType="email-address"
+                value={email}
+                onChangeText={setEmail}
+            />
+
+            {!otpSent && (
+                <View style={styles.buttonContainer}>
+                    <Button title="Request OTP" onPress={handleRequestOtp} color="#FF6F30" />
+                </View>
+            )}
+
+            {otpSent && (
+                <>
+                    <Text style={styles.label}>Enter OTP</Text>
+                    <TextInput
+                        style={styles.input}
+                        keyboardType="numeric"
+                        value={otp}
+                        onChangeText={setOtp}
+                    />
+                    <View style={styles.buttonContainer}>
+                        <Button title="Verify OTP" onPress={handleVerifyOtp} color="#FF6F30" />
+                    </View>
+                </>
+            )}
 
             <Text style={styles.label}>Patient Name</Text>
             <TextInput
@@ -165,6 +239,7 @@ const App = () => {
                         <Text style={styles.patientText}>Chart Code: {patient.chartCode}</Text>
                         <Text style={styles.patientText}>Name: {patient.name}</Text>
                         <Text style={styles.patientText}>Mobile: {patient.mobileNumber}</Text>
+                        <Text style={styles.patientText}>Email: {patient.email}</Text>
                         <Text style={styles.patientText}>Gender: {patient.gender}</Text>
                         <Text style={styles.patientText}>DOB: {patient.dob}</Text>
                         <Text style={styles.patientText}>Age: {patient.age}</Text>
